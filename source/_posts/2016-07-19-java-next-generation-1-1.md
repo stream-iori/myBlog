@@ -26,8 +26,10 @@ vertx-sync 对外只是暴露了几个简单的静态API，来完成对vert.x体
 ```
 -javaagent:/path/to/the/quasar-core-0.7.5-jdk8.jar
 ```
+
 如果是基于Maven跑单元测试，那只需要引用quasar instrument的插件就可以里  
-```xml
+
+```Xml
 <plugin>
 	<groupId>com.vlkan</groupId>
 	<artifactId>quasar-maven-plugin</artifactId>
@@ -52,18 +54,21 @@ vertx-sync 对外只是暴露了几个简单的静态API，来完成对vert.x体
 		</dependency>
 	</dependencies>
 </plugin>
-```  
+```
+
 上面是一些非常必要的准备工作，否则你无法使用quasar以及vertx-sync。
 
 ##### vertx定时器例子
-之前通过vert.x调用定时器，需要传一个回调handler，然后所有的代码逻辑都包在里面。
-```java
+之前通过vert.x调用定时器，需要传一个回调handler，然后所有的代码逻辑都包在里面。  
+
+```Java
 vertx.setTimer(1000L, h -> {
 	System.out.println("time's up");
 });
-```  
+```
+
 现在我们来重新塑造一下三观。  
-```java
+```Java
 awaitEvent(h -> vertx.setTimer(1000L, h));
 System.out.println("time's up");
 ```
@@ -72,6 +77,7 @@ System.out.println("time's up");
 
 ##### HTTP Client请求例子
 我们先用传统的回调方式使用vert.x的HttpClient API。  
+
 ```java
 HttpClientRequest httpClientRequest = vertx.createHttpClient().get("leapcloud.cn");
 httpClientRequest.handler(response -> {
@@ -79,14 +85,15 @@ httpClientRequest.handler(response -> {
 		System.out.println(responseBody.toString());
 	});
 }).end();
-```  
+```
 这里有两层回调嵌套，一层是得到Http的Response，另一层是从Response里得到详细的body。因为有lambda表达式才使得Java现在看起来并不是那么恶心。但是如果我们需要根据body的内容进一步做判断去继续请求其他页面，则嵌套会变的非常的深。下面尝试改造成sync方式看看。  
+
 ```java
 HttpClientRequest httpClientRequest = vertx.createHttpClient().get("leapcloud.cn");
 HttpClientResponse response = awaitEvent(Sync::fiberHandler);
 Buffer body = awaitEvent(response::handler);
 System.out.println(body.toString());
-```  
+```
 额，是不是感觉看着很舒服，无嵌套，直接顺序下来，非常的直观，加上Java8特有的方法引用，会让代码更精简。  
 
 ##### 通过vertx-sync使用Vert.x JDBC
@@ -127,6 +134,7 @@ client.getConnection(conn -> {
 	});
 });
 ```
+
 上面代码可以是不是有点恶心呢？尝试改造一下吧。  
 
 ```java
@@ -149,7 +157,8 @@ try (SQLConnection conn = awaitResult(jdbc::getConnection)) {
 } catch (Exception e) {
 	e.printStackTrace();
 }
-```  
+```
+
 除了一个try catch，其他都没有嵌套，整体逻辑的可读性非常高，完全是线性的。
 
 ##### 如何将逻辑放倒Fiber里
@@ -164,6 +173,7 @@ AsyncResult<Long> result = awaitResult(fiberHandler(h -> vertx.executeBlocking((
 //打印结果
 System.out.println(result.result());
 ```  
+
 这里你会注意到 awaitReslt 里用了 *fiberHandler* ，因为executeBlocking里的 *handler* 逻辑本身并没有跑在fiber体系下，所以会导致无效，而fiberHandler的作用就是将一段vert.x的handler包到 fiber 里。使之后续的await可以将其结果返回，这里使用awaitResult返回结果。  
 我们再深入一点看看 fiberHandler 方法里到底干了什么。  
 ```java
